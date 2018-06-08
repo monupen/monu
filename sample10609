@@ -1,0 +1,18 @@
+@charset  " UTF-8 " ;
+
+#inner {
+	最大幅： 400 ピクセル。
+}
+
+#drawArea、
+#image {
+	ポジション：相対 ;
+}
+
+#image {
+	幅： 100 ％ ;
+}
+
+#drawArea  canvas {
+	vertical-align： top ;
+}
