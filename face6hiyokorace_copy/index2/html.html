@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>表情認識</title>
+    <style>
+        /* video 要素の上に canvas 要素をオーバーレイするための CSS */
+        #container {              /* コンテナ用の div について */
+            position: relative;     /* 座標指定を相対値指定にする */
+        }
+        #video {                  /* カメラ映像を流す video について */
+            transform: scaleX(-1);  /* 左右反転させる */
+        }
+        #canvas {                 /* 描画用の canvas について */
+            transform: scaleX(-1);  /* 左右反転させる */
+            position: absolute;     /* 座標指定を絶対値指定にして */
+            left: 0;                /* X座標を0に */
+            top: 0;                 /* Y座標を0に */
+        }
+
+    </style>
+
+</head>
+
+<body>
+<div id="container">  <!-- video の上に canvas をオーバーレイするための div 要素 -->
+    <video id="video" width="400" height="300" autoplay></video>  <!-- カメラ映像を流す video -->
+    <canvas id="canvas" width="400" height="600"></canvas><!-- 重ねて描画する canvas -->
+
+</div>
+<div id="dat"></div>  <!-- データ表示用 div 要素 -->
+
+<!-- clmtrackr 関連ファイルの読み込み -->
+<script src="clmtrackr.js"></script>          <!-- clmtrackr のメインライブラリの読み込み -->
+<script src="model_pca_20_svm_emotion.js"></script>   <!-- 顔モデル（※1）の読み込み -->
+<script src="emotionClassifier.js"></script>  <!-- 感情を分類する外部関数の読み込み -->
+<script src="emotionModel.js"></script>       <!-- 感情モデル（※2）の読み込み -->
+
+<script>
+    // もろもろの準備
+    var video = document.getElementById("video");           // video 要素を取得
+    var canvas = document.getElementById("canvas");         // canvas 要素の取得
+    var context = canvas.getContext("2d");                  // canvas の context の取得
+    var context2 = canvas.getContext("2d");
+    var stampNose = new Image();                            // 鼻のスタンプ画像を入れる Image オブジェクト
+    var stampEars = new Image();                            // 耳のスタンプ画像を入れる Image オブジェクト
+    var stampTear = new Image();                            // ★涙のスタンプ画像を入れる Image オブジェクト
+    var stampSurp = new Image();                            // ★驚きのスタンプ画像を入れる Image オブジェクト
+    var stampEyes = new Image();                            // ★ハートのスタンプ画像を入れる Image オブジェクト
+    var stampMap  = new Image();
+    var stampShip = new Image();
+    stampNose.src = "nose.png";                             // 鼻のスタンプ画像のファイル名
+    stampEars.src = "ears.png";                             // 耳のスタンプ画像のファイル名
+    stampTear.src = "tear.png";                             // ★涙のスタンプ画像のファイル名
+    stampSurp.src = "surp.png";                             // ★驚きのスタンプ画像のファイル名
+    stampEyes.src = "eyes.png";                             // ★ハートのスタンプ画像のファイル名
+    stampMap.src  = "stampMap.jpg";
+    stampShip.src  = "icon_ship.png";
+
+    stampMap.onload = function drawStampMap(){
+        context.drawImage(stampMap,10,10,300,300);
+    };
+    // getUserMedia によるカメラ映像の取得
+    var media = navigator.mediaDevices.getUserMedia({       // メディアデバイスを取得
+        video: {facingMode: "user"},                          // カメラの映像を使う（スマホならインカメラ）
+        audio: false                                          // マイクの音声は使わない
+    });
+    media.then((stream) => {                                // メディアデバイスが取得できたら
+        video.src = window.URL.createObjectURL(stream);       // video 要素にストリームを渡す
+    });
+
+    // clmtrackr の開始
+    var tracker = new clm.tracker();  // tracker オブジェクトを作成
+    tracker.init(pModel);             // tracker を所定のフェイスモデル（※1）で初期化
+    tracker.start(video);             // video 要素内でフェイストラッキング開始
+    // 感情分類の開始
+    var classifier = new emotionClassifier();               // emotionClassifier オブジェクトを作成
+    classifier.init(emotionModel);                          // classifier を所定の感情モデル（※2）で初期化
+
+
+</script>
+</body>
+</html>

@@ -1,0 +1,300 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>表情認識</title>
+    <style>
+        /* video 要素の上に canvas 要素をオーバーレイするための CSS */
+        #container {              /* コンテナ用の div について */
+            position: relative;     /* 座標指定を相対値指定にする */
+        }
+        #video {                  /* カメラ映像を流す video について */
+            transform: scaleX(-1); /* 左右反転させる */
+
+        }
+
+        #canvas {                 /* 描画用の canvas について */
+            transform: scaleX(-1);  /* 左右反転させる */
+            position: absolute;     /* 座標指定を絶対値指定にして */
+            left: 0;                /* X座標を0に */
+            top: 0;                 /* Y座標を0に */
+        }
+        #container2 {              /* コンテナ用の div について */
+            position: relative;     /* 座標指定を相対値指定にする */
+        }
+        #video2 {                  /* カメラ映像を流す video について */
+            transform: scaleX(-1);  /* 左右反転させる */
+
+        }
+        #canvas2 {                 /* 描画用の canvas について */
+            transform: scaleX(-1);  /* 左右反転させる */
+            position: absolute;     /* 座標指定を絶対値指定にして */
+            left:0;                /* X座標を0に */
+            top:0;                 /* Y座標を0に */
+        }
+    </style>
+    <meta charset="utf-8">
+</head>
+
+<body>
+<div id="container"> <!-- video の上に canvas をオーバーレイするための div 要素 -->
+    <video id="video" width="400" height="300" autoplay></video>  <!-- カメラ映像を流す video -->
+    <canvas id="canvas" width="400" height="300"></canvas><!-- 重ねて描画する canvas -->　
+</div>
+<div id="container2">
+    <video id="video2" width="400" height="300" autoplay></video>
+    <canvas id="canvas2" width="400" height="300"></canvas>
+    <canvas id="canvas3" width="1000" height="300"></canvas>
+</div>
+<div id="dat"></div>  <!-- データ表示用 div 要素 -->
+<form id="control"></form>
+
+<!-- clmtrackr 関連ファイルの読み込み -->
+<script src="clmtrackr.js"></script>          <!-- clmtrackr のメインライブラリの読み込み -->
+<script src="model_pca_20_svm_emotion.js"></script>   <!-- 顔モデル（※1）の読み込み -->
+<script src="emotionClassifier.js"></script>  <!-- 感情を分類する外部関数の読み込み -->
+<script src="emotionModel.js"></script>       <!-- 感情モデル（※2）の読み込み -->
+<script src="constants.js"></script>
+<script src="http://cdn.jsdelivr.net/mojs/latest/mo.min.js"></script>
+<script src="anime.min.js"></script>
+
+<script>
+    // もろもろの準備
+    var video = document.getElementById("video");           // video 要素を取得
+    var video2 = document.getElementById("video2");
+    var canvas = document.getElementById("canvas");         // canvas 要素の取得
+    var canvas2 = document.getElementById("canvas2");//ゲームを動かす方
+    var canvas3 = document.getElementById("canvas3");
+    var context = canvas.getContext("2d");                  // canvas の context の取得
+    var context2 = canvas2.getContext("2d");　　　　　　　　　//video2に描画するためのcanvas2
+    var context3 = canvas3.getContext("2d");　　　　　　　　　//今はstampMapが入っているとこと
+    var stampNose = new Image();                            // 鼻のスタンプ画像を入れる Image オブジェクト
+    var stampEars = new Image();                            // 耳のスタンプ画像を入れる Image オブジェクト
+    var stampTear = new Image();      　　                      // ★涙のスタンプ画像を入れる Image オブジェクト
+    var stampSurp = new Image();                            // ★驚きのスタンプ画像を入れる Image オブジェクト
+    var stampRane = new Image();
+    var stampIno = new Image();
+    var stampPen = new Image();
+    var stampHiyoko =new Image;
+    var alien1 = new Image;
+    var alien2 = new Image;
+    var astro1 = new Image;
+    var astro2 = new Image;
+    stampNose.src = "nose.png";                             // 鼻のスタンプ画像のファイル名
+    stampEars.src = "ears.png";                             // 耳のスタンプ画像のファイル名
+    stampTear.src = "tear.png";                             // ★涙のスタンプ画像のファイル名
+    stampSurp.src = "surp.png";                             // ★驚きのスタンプ画像のファイル名
+    stampRane.src  = "sotsu-rane.png";
+    stampIno.src  = "ino1-3-1-2.gif";
+    stampPen.src  = "pe1-3-2.gif";
+    stampHiyoko.src = "hiyoko1-4-1.gif";
+    alien1.src = "alien1.png";
+    alien2.src = "alien2.png";
+    astro1.src = "astro.png";
+    astro2.src = "astro2.png";
+
+    var control = document.getElementById("control");
+
+    // getUserMedia によるカメラ映像の取得
+　　 var media = navigator.mediaDevices.getUserMedia({       // メディアデバイスを取得
+        video: {facingMode: "user"},                          // カメラの映像を使う（スマホならインカメラ）
+        audio: false                                          // マイクの音声は使わない
+    });
+    /*media.then((stream) => {                                // メディアデバイスが取得できたら
+        video.src = window.URL.createObjectURL(stream);       // video 要素にストリームを渡す
+    });*/
+
+    var media2 = navigator.mediaDevices.getUserMedia({       // メディアデバイスを取得
+        video: {facingMode: "user2"},                          // カメラの映像を使う（スマホならインカメラ）
+        audio: false                                          // マイクの音声は使わない
+    });
+    media2.then((stream2) => {                                // メディアデバイスが取得できたら
+        video2.src = window.URL.createObjectURL(stream2);       // video 要素にストリームを渡す
+    });
+    getVideoSources(function(cam) {
+        var b = document.createElement("input")
+        b.type = "button";
+        b.value = cam.name;
+        b.onclick = getMain(cam.id);
+        control.appendChild(b);//console.logでcamとかnameのなかみを読もう
+    });
+    function getMain(cam_id) {
+        return function() {
+            main(cam_id);
+        };
+    }　
+    function main(cam_id) {
+        navigator.getUserMedia({
+            audio: false,
+            video: {
+                optional: [
+                    { sourceId: cam_id}
+                ]
+            }
+        }, function(stream) { // success
+            localStream = stream;
+            video.src = URL.createObjectURL(stream);
+            video.play();
+            video.volume = 0;
+        }, function(e) { // error
+            console.error("Error on start video: " + e.code);
+        });
+
+    };
+
+    // 感情分類の開始
+    var classifier = new emotionClassifier();               // emotionClassifier オブジェクトを作成
+    classifier.init(emotionModel);                          // classifier を所定の感情モデル（※2）で初期化
+
+    var vty = 0;//船の座標　最初は0
+    var vtx = 0;
+    var vty2 = 0;//船の座標　最初は0
+    var vtx2 = 0;
+
+    var tracker = new clm.tracker();  // tracker オブジェクトを作成
+    tracker.init(pModel);             // tracker を所定のフェイスモデル（※1）で初期化
+    tracker.start(video);             // video 要素内でフェイストラッキング開始
+
+    var tracker2 = new clm.tracker();  // tracker オブジェクトを作成
+    tracker2.init(pModel);             // tracker を所定のフェイスモデル（※1）で初期化
+    tracker2.start(video2);             // video 要素内でフェイストラッキング開始
+
+    var startTime = new Date().getTime();　//描画開始時刻を取得
+    var mouthOpen = 0;
+    var mouthOpen2 =0;
+
+
+    // 描画ループ
+    function drawLoop(){
+        requestAnimationFrame(drawLoop);// drawLoop 関数を繰り返し実行
+        var positions = tracker.getCurrentPosition();// 顔部品の現在位置の取得
+        var parameters = tracker.getCurrentParameters();      // ★現在の顔のパラメータを取得
+        var emotion = classifier.meanPredict(parameters);     // ★そのパラメータから感情を推定して emotion に結果を入れる
+
+        var positions2 = tracker2.getCurrentPosition();
+        var parameters2 = tracker2.getCurrentParameters();      // ★現在の顔のパラメータを取得
+        var emotion2 = classifier.meanPredict(parameters2);     // ★そのパラメータから感情を推定して emotion に結果を入れる
+
+        showEmotionData(emotion);
+
+        /*var currentTime = new Date().getTime();　//経過時刻を取得
+        var status = (startTime - currentTime) // 描画開始時刻から経過時刻を引く
+        console.log(status);*/
+        context3.drawImage(stampRane,0,0,1000,300);
+
+        context.clearRect(0, 0, canvas.width, canvas.height); // canvas をクリア
+        context2.clearRect(0, 0, canvas2.width, canvas2.height);
+
+        tracker.draw(canvas);// canvas にトラッキング結果を描画
+        tracker2.draw(canvas2);// canvas にトラッキング結果を描画
+
+        drawStamp(positions,alien1, 62,0.5,0.0, 0.0);   // pos, img, bNo, scale ,hShift, vShift鼻のスタンプを描画
+        drawStamp(positions,astro1, 33, 0.5,0.0,-1.8);  // 耳のスタンプを描画
+        drawStamp3(positions2,alien2, 62, 0.5,0.0, 0.0);   // 鼻のスタンプを描画
+        drawStamp3(positions2,astro2, 33,0.5,0.0,-1.8);
+
+    }
+    drawLoop();
+
+    // スタンプを描く drawStamp 関数
+    // (顔部品の位置データ, 画像, 基準位置, 大きさ, 横シフト, 縦シフト)
+    function drawStamp(pos, img, bNo, scale ,hShift, vShift) {//動いてない
+        var eyes = pos[32][0] - pos[27][0];                   // 幅の基準として両眼の間隔を求める
+        var nose = pos[62][1] - pos[33][1];                   // 高さの基準として眉間と鼻先の間隔を求める
+        var mouthH = pos[53][1] - pos[47][1];
+        var mouthH2 =　pos[53][1] - pos[57][1];
+        var eyeHL = pos[26][1] - pos[21][1];//左目の高さ
+        var eyeHL2 = 2 * pos[29][1] - pos[17][1];//右目上から眉までの高さ
+        var wScale = eyes / img.width;                        // 両眼の間隔をもとに画像のスケールを決める
+        var imgW = img.width * scale * wScale;                // 画像の幅をスケーリング
+        var imgH = img.height * scale * wScale;               // 画像の高さをスケーリング
+        var imgX = pos[bNo][0] - imgW / 2 + eyes * hShift;    // 画像のLeftを決める
+        var imgY = pos[bNo][1] - imgH / 2 + nose * vShift;    // 画像のTopを決める
+
+        console.log(eyeHL);
+        console.log(eyeHL2);
+        //context.drawImage(img, imgX, imgY, imgW, imgH);       // 画像を描く
+        context3.drawImage(alien1,vtx,vty + 50);
+        if (mouthH > mouthH2*3) {//条件1:口が開いている時スタンプの座標が増え続ける/// 動いてない
+            if (!mouthOpen  /*===0false*/) {
+                vtx += 50;
+                console.log(eyeHL);
+                console.log(eyeHL2);
+                mouthOpen = 1;
+                /*var burst = new mojs.Burst({
+                    radius: {
+                        0: 100
+                    },
+                    angle:        { 0 : 360 },//kakudo0~360
+                    delay:        500, //1パターンのアニメーション間隔
+
+                    repeat:       2,
+                    //x: 100,     y: 1200,
+                    children: {
+                        fill: ['deepPink', 'cyan', 'orange','red','white','deepPink', 'cyan', 'orange','red','white'],
+
+                    }
+                }).play();*/
+            }
+        } else {
+            mouthOpen = 0;
+        }
+    };
+    function drawStamp3(pos, img, bNo, scale ,hShift, vShift) {//動いてない
+        var eyes = pos[32][0] - pos[27][0];                   // 幅の基準として両眼の間隔を求める
+        var nose = pos[62][1] - pos[33][1];                   // 高さの基準として眉間と鼻先の間隔を求める
+        var mouthH = pos[53][1] - pos[47][1];
+        var mouthH2 =　pos[53][1] - pos[57][1];
+        var wScale = eyes / img.width;                        // 両眼の間隔をもとに画像のスケールを決める
+        var imgW = img.width * scale * wScale;                // 画像の幅をスケーリング
+        var imgH = img.height * scale * wScale;               // 画像の高さをスケーリング
+        var imgX = pos[bNo][0] - imgW / 2 + eyes * hShift;    // 画像のLeftを決める
+        var imgY = pos[bNo][1] - imgH / 2 + nose * vShift;    // 画像のTopを決める
+
+        context2.drawImage(img, imgX, imgY, imgW, imgH);       // 画像を描く
+        context3.drawImage(alien2,vtx2,vty2 + 200);
+        if (mouthH > (mouthH2*3)) {//条件1:口が開いている時スタンプの座標が増え続ける/// 動いてない
+            if(mouthOpen2 === 0){
+                vtx2 += 50;
+                mouthOpen2 = 1;
+                anime({//ここ、画面全体（canvas?を指定して弾むようになっているので注意する）
+                    targets: 'div',
+                    left: '80%', // Animate all divs left position to 80%
+                    opacity: .8, // Animate all divs opacity to .8
+                    //backgroundColor: '#FFF' // Animate all divs background color to #FFF
+                });
+                /*const burst = new mojs.Burst({
+                    radius: {
+                        0: 100
+                    },
+                    angle:        { 0 : 360 },
+                    delay:        1500,
+                    repeat:       5,
+                    x: 100,     y: -3000,
+                    children: {
+                        fill: ['deepPink', 'cyan', 'orange','red','white','deepPink', 'cyan', 'orange','red','white'],
+
+                    }
+                }).play();*/
+            }
+            　　
+            }else{
+                mouthOpen2 = 0;
+            }
+    };
+
+    // ★感情データの表示
+    function showEmotionData(emo) {
+        var str ="";                                          // データの文字列を入れる変数
+        for(var i = 0; i < emo.length; i++) {                 // 全ての感情（6種類）について
+            str += emo[i].emotion + ": "                        // 感情名
+                + emo[i].value.toFixed(1) + "<br>";            // 感情の程度（小数第一位まで）
+        }
+        var dat = document.getElementById("dat");             // データ表示用div要素の取得
+        dat.innerHTML = str;                                  // データ文字列の表示
+    }
+</script>
+</body>
+</html>
